@@ -77,7 +77,7 @@ class CustomRetrievalMetric(CustomMeanReductionMetric):
         target = target.reshape(batch_size, -1).int()
 
         metric = self._metric(preds, target)
-        self.metric_values += metric.sum().item()
+        self.metric_values += metric.sum().item() # update就是加上一个batch的数据？最后一起算平均？
         self.total_values += batch_size
 
     def _metric(self, preds: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -188,14 +188,14 @@ class RetrievalEvaluator(Evaluator):
         num_of_candidates = key_embeddings.shape[0]
 
         if self.should_sample_negatives_from_vocab:
-            inbatch_negatives = self.sample_negative_ids_from_vocab(
+            inbatch_negatives = self.sample_negative_ids_from_vocab(# 这是啥？随机从词表中采样一些负样本？
                 num_of_samples=num_of_samples,
                 num_of_candidates=num_of_candidates,
                 num_negatives=self.num_negatives,
             )
             # we +1 here because we need to include the positive sample
             num_of_candidates = self.num_negatives + 1
-            pos_embeddings = key_embeddings[labels]
+            pos_embeddings = key_embeddings[labels] # 取出真实的emb进行对比？
             key_embeddings = key_embeddings[inbatch_negatives]
             # key_embeddings shape: (bsz, num_negatives+1, emb_dim)
             key_embeddings = torch.cat(
@@ -224,7 +224,7 @@ class RetrievalEvaluator(Evaluator):
             preds = torch.mm(query_embeddings, key_embeddings.t()).reshape(-1)
 
         target = torch.zeros(num_of_samples, num_of_candidates).bool()
-        target[torch.arange(num_of_samples), labels] = True
+        target[torch.arange(num_of_samples), labels] = True# 构造正负样本对？
         target = target.reshape(-1)
 
         for _, metric_object in self.metrics.items():
@@ -285,8 +285,8 @@ class SIDRetrievalEvaluator(Evaluator):
         labels: torch.Tensor,
         **kwargs,
     ):
-        batch_size, num_candidates, num_hierarchies = generated_ids.shape
-        labels = labels.reshape(batch_size, 1, num_hierarchies)
+        batch_size, num_candidates, num_hierarchies = generated_ids.shape #生成的语义id，为什么前面会有这么多候选？？？
+        labels = labels.reshape(batch_size, 1, num_hierarchies)# 直接一次就译码出k个层次语义id，用beam-search
         preds = marginal_probs.reshape(-1)
 
         # check if the generated IDs contain the labels

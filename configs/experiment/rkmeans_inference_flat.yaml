@@ -45,7 +45,7 @@ experiment: null
 callbacks:
   bq_writer:
     table_id: ???
-  pickle_writer:
+  pickle_writer: # 量化的结果怎么保存呢？predict的结果如何自动保存？？？
     _target_: src.utils.inference_utils.LocalPickleWriter
     output_dir: ${paths.output_dir}/pickle
     flush_frequency: 100000
@@ -93,7 +93,7 @@ trainer:
   profiler:
     _target_: lightning.pytorch.profilers.PassThroughProfiler
 data_loading:
-  features_config:
+  features_config: #  数据输入的配置
     features:
     - name: id
       num_placeholder_tokens: 0
@@ -102,14 +102,14 @@ data_loading:
         _target_: torch.load
         _args_:
         - _target_: src.utils.file_utils.open_local_or_remote
-          file_path: ${embedding_path}
+          file_path: ${embedding_path} # 在这里传入embeding？？？那原始的有啥用呢？
           mode: rb
       type:
         _target_: torch.__dict__.get
         _args_:
         - int32
   dataset_config:
-    dataset:
+    dataset: # 数据集的配置
       _target_: src.data.loading.components.interfaces.ItemDatasetConfig
       item_id_field: id
       keep_item_id: true
@@ -135,9 +135,9 @@ data_loading:
         embedding_field_to_add: embedding
       field_type_map: ${create_map_from_list_of_dicts:${data_loading.features_config.features},
         "name", "type"}
-  datamodule:
+  datamodule: # target是要实例化的类
     _target_: src.data.loading.datamodules.sequence_datamodule.ItemDataModule
-    predict_dataloader_config:
+    predict_dataloader_config: # 下面是参数？类下面还有类？
       _target_: src.data.loading.components.interfaces.ItemDataloaderConfig
       dataset_class:
         _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable

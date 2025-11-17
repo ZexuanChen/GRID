@@ -19,7 +19,7 @@ from src.models.modules.base_module import BaseModule
 class TransformerBaseModule(BaseModule):
     def __init__(
         self,
-        huggingface_model: transformers.PreTrainedModel,
+        huggingface_model: transformers.PreTrainedModel,# 定义这边要依次传入的参数？如果参数里面有模型又得按顺序去实例化模型？
         postprocessor: torch.nn.Module,
         aggregator: EmbeddingAggregator,
         optimizer: torch.optim.Optimizer,
@@ -60,7 +60,7 @@ class TransformerBaseModule(BaseModule):
         self.encoder = huggingface_model
         self.embedding_post_processor = postprocessor
         self.decoder = decoder
-        self.aggregator = aggregator
+        self.aggregator = aggregator # 聚合器又是啥？？？
         self.feature_to_model_input_map = feature_to_model_input_map
 
     def get_embedding_table(self):
@@ -69,7 +69,7 @@ class TransformerBaseModule(BaseModule):
         else:
             return self.decoder.weight
 
-    def training_step(
+    def training_step(# 训练的主体代码
         self,
         batch: Tuple[Tuple[SequentialModelInputData, SequentialModuleLabelData]],
         batch_idx: int,
@@ -92,7 +92,7 @@ class TransformerBaseModule(BaseModule):
         model_output, loss = self.model_step(
             model_input=model_input, label_data=label_data
         )
-
+        
         # update and log metrics. Will only be logged at the interval specified in the logger config
         self.train_loss(loss)
         # checks logging interval and logs the loss
@@ -129,14 +129,14 @@ class TransformerBaseModule(BaseModule):
             model_input=model_input, label_data=label_data
         )
 
-        model_output_after_aggregation = self.aggregator(
+        model_output_after_aggregation = self.aggregator( # 为什么需要聚合？
             model_output_before_aggregation, model_input.mask
         )
 
         # Updates metrics inside evaluator.
         self.evaluator(
             query_embeddings=model_output_after_aggregation,
-            key_embeddings=self.get_embedding_table().to(
+            key_embeddings=self.get_embedding_table().to( # 这里的emb是啥？就是输入层的emb
                 model_output_after_aggregation.device
             ),
             # TODO: (lneves) hardcoded for now, will need to change for multiple features

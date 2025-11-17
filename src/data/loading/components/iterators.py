@@ -102,7 +102,7 @@ class ParquetDataIterator(RawDataIterator):
     def get_file_suffix(self) -> str:
         return "parquet"
 
-class TFRecordIterator(RawDataIterator):
+class TFRecordIterator(RawDataIterator): # 这里的迭代器和外面的迭代器没有区别嘛？
     """Data iterator class for tfrecord files
     Parameters
     ----------
@@ -137,12 +137,14 @@ class TFRecordIterator(RawDataIterator):
             self.feature_description = self.infer_feature_type(
                 self.parse_tfrecord(sample_record).features.feature  # type: ignore
             )
+            # 把特征描述打印出来？
 
     def iterrows(self):
         assert self.list_of_file_paths is not None, "list_of_file_paths is not set"
         raw_dataset = tf.data.TFRecordDataset(
             [self.list_of_file_paths], compression_type="GZIP"
-        )
+        ) # 多个文件并行读取？？怎么查看
+        
         if self.should_shuffle_rows:
             # the buffer here is the number of records to shuffle
             # the larger the buffer, the more memory it will use
@@ -153,6 +155,31 @@ class TFRecordIterator(RawDataIterator):
         # We create an iterator and manually iterate to allow for retrying the
         # "next" operation in case of a failure.
         dataset_iterator = iter(raw_dataset)
+
+        # # === 这里调试打印前5条完整内容 ===
+        # print(self.list_of_file_paths)
+        # for i in range(1):   # 只取前5条
+        #     try:
+        #         curr_example = next(dataset_iterator)
+        #     except StopIteration:
+        #         break
+        #     parsed = tf.io.parse_single_example(curr_example, self.feature_description)
+            
+        #     # 处理 SparseTensor，转换成 dense
+        #     example_dict = {}
+        #     for k, v in parsed.items():# 都已经有表征了，还拿出来干嘛？？？？为什么还需要编码？
+        #         if isinstance(v, tf.sparse.SparseTensor):
+        #             example_dict[k] = tf.sparse.to_dense(v).numpy()
+        #         else:
+        #             example_dict[k] = v.numpy().tolist()  # 普通 Tensor
+        #         if(k=='embedding'): print(k,":::",v.shape)
+        #         else: print(k,":::",v)
+            
+        #     # print(f"Example {i}:", example_dict)
+
+        # # === 打印完退出避免继续训练 ===
+        # exit(0)
+
         curr_example = self._get_next_example(dataset_iterator)
         while curr_example:
             example = tf.io.parse_single_example(curr_example, self.feature_description)
@@ -181,7 +208,7 @@ class TFRecordIterator(RawDataIterator):
             batch_size, drop_remainder=self.should_drop_last_batch
         ).prefetch(buffer_size=tf.data.AUTOTUNE)
 
-        for batch_tf_processing_function in self.batch_tf_processing_functions:
+        for batch_tf_processing_function in self.batch_tf_processing_functions: # 不清楚是怎么迭代的？
             batched_dataset = batched_dataset.map(batch_tf_processing_function)
 
         dataset_iterator = iter(batched_dataset)

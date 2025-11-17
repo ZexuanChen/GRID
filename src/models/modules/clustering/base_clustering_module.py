@@ -49,7 +49,7 @@ class BaseClusteringModule(LightningModule):
         self.initializer = initializer
         self.init_buffer_size = init_buffer_size
 
-        self.centroids = torch.nn.Parameter(
+        self.centroids = torch.nn.Parameter( # 质心就是码本的意思
             torch.zeros(self.n_clusters, self.n_features), requires_grad=True
         )
         self.update_manually = update_manually
@@ -94,7 +94,7 @@ class BaseClusteringModule(LightningModule):
 
         self.init_centroids = self.initializer(buffer)
 
-    def initialization_step(
+    def initialization_step( # 初始化的时候
         self,
         batch: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:

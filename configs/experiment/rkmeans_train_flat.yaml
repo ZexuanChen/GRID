@@ -138,7 +138,7 @@ model:
   _target_: src.modules.clustering.residual_quantization.ResidualQuantization
   track_residuals: true
   verbose: true
-  train_layer_wise: true
+  train_layer_wise: true # 每层单独训练的？？？
   normalize_residuals: true
   input_dim: ${embedding_dim}
   n_layers: ${num_hierarchies}
@@ -167,7 +167,7 @@ callbacks:
     _target_: lightning.pytorch.callbacks.ModelCheckpoint
     dirpath: ${paths.output_dir}/checkpoints
     filename: checkpoint_{epoch:03d}_{step:06d}
-    monitor: train/loss
+    monitor: train/loss # 记录要监控的指标
     verbose: true
     save_last: null
     save_top_k: 1

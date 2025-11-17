@@ -155,7 +155,7 @@ model:
     - 768
     - 256
     - 128
-    output_dim: 64
+    output_dim: 64 # 4层压缩？
     activation:
       _target_: torch.nn.ReLU
       _partial_: true
@@ -170,18 +170,18 @@ model:
     activation:
       _target_: torch.nn.ReLU
       _partial_: true
-  init_buffer_size: 3072
+  init_buffer_size: 3072 # 达到一定数量才进行初始化，不是用一个batch的数据初始哈
   quantization_layer:
     _target_: src.modules.clustering.vector_quantization.VectorQuantization
     n_clusters: ${codebook_width}
     n_features: ${model.encoder.output_dim}
-    distance_function:
+    distance_function: # 平方和作为距离选择最近的码本进行量化
       _target_: src.components.distance_functions.SquaredEuclideanDistance
-    quantization_strategy:
+    quantization_strategy: # 梯度直通code=h+(code-h.detach())
       _target_: src.components.quantization_strategies.STEQuantization
       distance_function: ${model.quantization_layer.distance_function}
       compute_reconstruction_loss_embeddings: true
-    initializer:
+    initializer: # 初始化
       _target_: src.components.clustering_initializers.ClusteringModuleInitializer
       n_clusters: ${model.quantization_layer.n_clusters}
       initialize_on_cpu: false
@@ -219,7 +219,7 @@ callbacks:
     _target_: lightning.pytorch.callbacks.ModelCheckpoint
     dirpath: ${paths.output_dir}/checkpoints
     filename: checkpoint_{epoch:03d}_{step:06d}
-    monitor: train/loss
+    monitor: train/loss # 记录根据什么指标选择最优的模型
     verbose: true
     save_last: null
     save_top_k: 1
@@ -244,7 +244,7 @@ trainer:
   _target_: lightning.pytorch.trainer.Trainer
   default_root_dir: ${paths.output_dir}
   min_steps: 1
-  max_steps: 3000
+  max_steps: 3000 # 只管最大步数？为什么最大步数设置这么大？为什么运行速度这么慢？
   max_epochs: 10
   accelerator: gpu
   devices: -1

@@ -229,7 +229,16 @@ extras:
   print_config: true
 optim:
   optimizer:
+    _target_: torch.optim.Adagrad
+    _partial_: true
     lr: 0.001
+    weight_decay: 0.0
+  scheduler:
+    _target_: src.components.scheduler.WarmupLinearScheduler
+    _partial_: true
+    warmup_steps: 1000
+    min_ratio: 0.01
+    scheduler_steps: ${trainer.max_steps}
 eval:
   evaluator:
     placeholder_token_buffer: 0

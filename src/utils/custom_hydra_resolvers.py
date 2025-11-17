@@ -100,7 +100,7 @@ def create_map_from_list_of_dicts(
         return DictConfig({d[key]: d for d in list_of_dicts if key in d})
 
     return DictConfig(
-        {d[key]: d[value] for d in list_of_dicts if key in d and value in d}
+        {d[key]: d[value] for d in list_of_dicts if key in d and value in d}# 如果value不在字典key里面就不会构造，所以是个空的
     )
 
 

@@ -81,7 +81,7 @@ class BaseDataset:
     def setup(self):
         pass
 
-
+# 这里也没有说哪里调用了这个模型啊？
 class UnboundedSequenceIterable(BaseDataset, IterableDataset):
     """An unbounded dataset is a dataset that we don't know the size of beforehand.
     For training, we will iterate over the dataset infinitely. For evaluation, we will iterate over the dataset once.
@@ -133,19 +133,19 @@ class UnboundedSequenceIterable(BaseDataset, IterableDataset):
                 First five files are: {self.data_iterator.list_of_file_paths[:5]}"
         )
 
-    def __iter__(self):
+    def __iter__(self):# 具体迭代会留给外面的自动调用？
         if self.dataset_to_iterate is None:
             # If it has not been set up, it means it is a forkserver worker. We need to set it up.
             self.setup()
         # If the dataset is for training, we want to keep iterating over the dataset infinitely.
         # On a streaming dataset, we will always be on Epoch 0.
         finished_iteration = False
-        while not finished_iteration:
+        while not finished_iteration:# 啥意思？？一直死循环训练？
 
             for row_or_batch in self.dataset_to_iterate:
                 for (
                     preprocessing_function
-                ) in self.dataset_config.preprocessing_functions:
+                ) in self.dataset_config.preprocessing_functions:# 数据被处理时依次调用对应的处理函数进行处理，为什么不直接处理好再迭代呢？直接保存好预处理好的数据不就行了嘛？
                     row_or_batch = preprocessing_function(
                         row_or_batch, dataset_config=self.dataset_config
                     )

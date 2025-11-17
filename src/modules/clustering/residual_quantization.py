@@ -14,6 +14,43 @@ from src.models.components.interfaces import OneKeyPerPredictionOutput
 from src.models.modules.clustering.base_clustering_module import BaseClusteringModule
 
 
+import time
+import numpy as np
+
+class timer:
+    def __init__(self, max_step: int=10, offset: int=0) -> None: # 只记录前面10步的平均
+        self.time_dict = dict()
+        self.max_step = max_step
+        self.offset = offset
+
+    def getLen(self, name: str=None) -> int: # 如果name为none，返回dict第一个key对应的list的长度，如果没有key返回0
+        if name is None:
+            if len(self.time_dict.keys()) == 0:
+                return 0
+            name = next(iter(self.time_dict.keys()))
+        return len(self.time_dict.get(name, []))
+
+    def append(self, name: str, time_gap: float=None) -> None: # 把当前时间放到对应list里面去,这里是不是并没有改变字典对应的列表？
+        if name not in self.time_dict.keys():
+            self.time_dict[name] = [time_gap]
+        else:
+            if len(self.time_dict[name]) == self.max_step:
+                return  
+            self.time_dict[name].append(time_gap)
+            if len(self.time_dict[name]) == self.max_step:
+                self.cal_mean(name) # 打印出平均
+
+    def cal_mean(self, name: str=None) -> None:
+        if self.max_step is None:
+            self.max_step = len(self.time_dict[name])
+        print_key_list = self.time_dict.keys() if name is None else [name]
+        for name in print_key_list:
+            sum_time = sum(self.time_dict[name][-self.max_step-self.offset:])
+            mean_time = sum_time / len(self.time_dict[name][-self.max_step-self.offset:])
+            logging.info(f"{name}-{self.max_step}-time(s): {self.time_dict[name][-self.max_step:]}")
+            logging.info(f"{name}-{self.max_step-self.offset}-sum time(s): {sum_time}")
+            logging.info(f"{name}-{self.max_step-self.offset}-avr time(s): {mean_time}")
+
 class ResidualQuantization(LightningModule):
     def __init__(
         self,
@@ -82,9 +119,9 @@ class ResidualQuantization(LightningModule):
         self.track_residuals = track_residuals or self.verbose
 
         self.normalization_layer = normalization_layer
-        self.encoder = encoder
+        self.encoder = encoder # 构造编码和译码器
         self.decoder = decoder
-        self.quantization_layer_list = self._instantiate_quantization_layer_list(
+        self.quantization_layer_list = self._instantiate_quantization_layer_list( 
             quantization_layer,
             quantization_layer_list,
             n_layers,
@@ -145,6 +182,8 @@ class ResidualQuantization(LightningModule):
         self.init_buffer_size = init_buffer_size
         for layer in self.quantization_layer_list:
             layer.init_buffer_size = init_buffer_size
+        
+        self.timer=timer(max_step=None, offset=0)
 
     def _instantiate_quantization_layer_list(
         self,
@@ -286,8 +325,8 @@ class ResidualQuantization(LightningModule):
         """
         input_embeddings = model_input.transformed_features["input_embedding"].to(
             self.device
-        )
-        normalized_input_embeddings = self.normalization_layer(input_embeddings)
+        ) # 先进行norm，以便于后续重构误差不会很大
+        normalized_input_embeddings = self.normalization_layer(input_embeddings) # 先进行norm，避免值过大，不易重构，防止重构损失和对齐损失差异过大
         encoded_embeddings = self.encoder(normalized_input_embeddings)
         (
             cluster_ids,
@@ -328,6 +367,8 @@ class ResidualQuantization(LightningModule):
         """
         # Lightning wraps the batch in a tuple for training, we get the batch from
         # position 0. This behavior only happens for training_step.
+        start = time.time()
+
         model_input: ItemData = batch[0]
         (
             cluster_ids,
@@ -340,6 +381,7 @@ class ResidualQuantization(LightningModule):
             self.quantization_loss_weight * quantization_loss
             + self.reconstruction_loss_weight * reconstruction_loss
         )
+        
         self.train_loss(loss)
         self.train_quantization_loss(quantization_loss)
         self.train_reconstruction_loss(reconstruction_loss)
@@ -432,12 +474,17 @@ class ResidualQuantization(LightningModule):
                 layer_to_check = -1
             is_initialized = self.quantization_layer_list[layer_to_check].is_initialized
 
-            self.training_loop_function(
+            self.training_loop_function( # 这里循环的时候会根据是否进行初始化来判断是否进行训练！！！没有初始化的话就不会后向！！！
                 self,
                 loss=loss,
                 world_size=self.trainer.world_size,
                 is_initialized=is_initialized,
             )
+        
+        self.timer.append("train_time",time.time()-start)
+        if self.global_step == self.trainer.max_steps: # 平均每个step的运行时间，包括前面的初始化和聚类的一些操作
+        # if self.global_step == 20: # 平均每个step的运行时间，包括前面的初始化和聚类的一些操作
+            self.timer.cal_mean("train_time")
 
         if (
             self.train_layer_wise
@@ -627,6 +674,7 @@ class ResidualQuantization(LightningModule):
         mse_metric(mse)
 
     def validation_step(self, batch: ItemData, batch_idx: int):
+    # def eval_step(self, batch: ItemData, batch_idx: int):
         """
         Perform a single validation step on a batch of data.
 
@@ -650,8 +698,8 @@ class ResidualQuantization(LightningModule):
             "val/frac_unique_ids": self.val_frac_unique_ids,
             "val/mse": self.val_mse,
         }
-        self.log_dict(
-            val_dict_to_log,
+        self.log_dict( # self.log_dict 把验证的指标自动保存到 logger 和 callbacks 里了
+            val_dict_to_log, # 便于根据验证的指标自动确定最优的模型
             on_step=False,
             on_epoch=True,
             prog_bar=True,

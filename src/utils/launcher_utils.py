@@ -1,3 +1,11 @@
+# 这个脚本用于启动训练和推理任务
+# 它使用hydra来管理配置，lightning来管理训练和推理
+# 它还提供了一些实用函数，如更新配置、实例化回调和日志记录器等
+# 它的主要函数是pipeline_launcher，它根据配置实例化数据模块、模型、回调和日志记录器，并使用lightning的Trainer来训练或推理模型
+# 它还提供了一些辅助函数，如get_last_modified_file、has_no_extension、list_subfolders等，用于处理文件和目录
+# 它还提供了一些回调函数，如ModelCheckpoint、ModelSummary等，用于在训练过程中保存模型和打印模型摘要
+# 它还提供了一些日志记录器，如TensorBoardLogger、CSVLogger等，用于记录训练和推理过程中的指标和日志
+
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import List
@@ -125,8 +133,8 @@ def initialize_pipeline_modules(
         f"Instantiating datamodule <{cfg.data_loading.datamodule._target_}>"
     )
     datamodule: LightningDataModule = hydra.utils.instantiate(
-        cfg.data_loading.datamodule
-    )
+        cfg.data_loading.datamodule # 专门用不同的配置文件初始化整个流程  
+    )  # LightningDataModule的作用？ 初始化数据模块，包括数据加载、预处理、转换等
 
     command_line_logger.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
@@ -189,7 +197,7 @@ def pipeline_launcher(cfg: DictConfig):
     """
 
     try:
-        pipeline_modules: PipelineModules = initialize_pipeline_modules(cfg)
+        pipeline_modules: PipelineModules = initialize_pipeline_modules(cfg) # 初始化pipeline模块，包括数据模块、模型、回调、日志记录器和训练器
         # Log hyperparameters if loggers are present
         if len(pipeline_modules.loggers) > 0:
             command_line_logger.info("Logging hyperparameters!")

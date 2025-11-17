@@ -71,7 +71,7 @@ class VectorQuantization(BaseClusteringModule):
                 embeddings. If the quantization strategy does not support this, this will
                 be None.
         """
-        codebook = self.get_centroids()
+        codebook = self.get_centroids() # 就是得到一层的码本，为什么需要得到质心
         (
             ids,
             embeddings,
@@ -114,7 +114,7 @@ class VectorQuantization(BaseClusteringModule):
         if self.is_initial_step:
             self.is_initial_step = False
             self.is_initialized = True
-        if not self.is_initialized:
+        if not self.is_initialized: # 还没有被初始化过先直接进行初始化量化？
             return self.initialization_step(batch)
 
         assignments, embeddings, reconstruction_loss_embeddings = self.forward(batch)

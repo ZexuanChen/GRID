@@ -13,8 +13,8 @@ from src.data.loading.components.interfaces import BaseDataloaderConfig
 from src.data.loading.utils import assign_files_to_workers
 from src.utils.file_utils import list_files
 
-
-class SequenceDataModule(LightningDataModule):
+# 处理输入数据
+class SequenceDataModule(LightningDataModule):# 本质就是一个数据模块，处理如何返回每个batch，只是拆分成了很多类别的配置进行不同的配置
     """A LightningDataModule that encapsulates data splitting, preprocessing,
     parallelization and batching.
     """
@@ -26,21 +26,7 @@ class SequenceDataModule(LightningDataModule):
         test_dataloader_config: Optional[BaseDataloaderConfig] = None,
         predict_dataloader_config: Optional[BaseDataloaderConfig] = None,
     ) -> None:
-        """Construct a SequenceDataModule using the provided config files.
-
-        The attributes `map_train_files_per_device`,
-        `map_val_files_per_device`, and `map_test_files_per_device` are
-        initialized as None, and are later modified by `setup()` to contain
-        mappings from device indices to lists of data files assigned to that
-        device.
-
-        :param train_dataloader_config: Training dataloader configuration passed
-            by Hydra.
-        :param val_dataloader_config: Validation dataloader configuration passed
-            by Hydra.
-        :param test_dataloader_config: Test dataloader configuration passed
-            by Hydra.
-        """
+    
         super().__init__()
 
         # this line allows to access init params with 'self.hparams' attribute
@@ -56,7 +42,7 @@ class SequenceDataModule(LightningDataModule):
 
         self.stage_to_file_map: Dict[TrainerFn, Dict[int, List[str]]] = dict()
 
-    def _get_partial_collate_fn(
+    def _get_partial_collate_fn(# 自定义怎么返回还是干嘛？
         self, dataloader_config: BaseDataloaderConfig
     ) -> callable:
         """Prepare the collate function for the dataloader.
@@ -113,7 +99,7 @@ class SequenceDataModule(LightningDataModule):
                 self.stage_to_file_map[stage] = {}
             else:
                 # If the stage has not been initialized yet, we assign files to workers based on the suffix passed by the config.
-                if stage not in self.stage_to_file_map:
+                if stage not in self.stage_to_file_map:# 直接保存？没有才重新取？
                     list_of_files = list_files(
                         folder_path=config.data_folder,
                         suffix=f"*{self.get_file_suffix_from_config(config)}",
@@ -186,7 +172,7 @@ class SequenceDataModule(LightningDataModule):
         # Any additional parameters for the masking function should be added to
         # the config and passed there. This is required because we can't pickle
         # lambda functions but the collate fn needs to receive just the batch.
-        collate_fn_partial = self._get_partial_collate_fn(curr_config)
+        collate_fn_partial = self._get_partial_collate_fn(curr_config) # 这是在干啥？？？？
 
         if curr_config.num_workers == 0:
             persistent_workers = False

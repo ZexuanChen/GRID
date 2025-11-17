@@ -86,8 +86,9 @@ python -m src.inference experiment=rkmeans_inference_flat \
 
 Train the recommendation model using the learned semantic IDs:
 
+
 ```bash
-python -m src.train experiment=tiger_train_flat \
+python -m src.train experiment=tiger_train_flat \ # 训练要训练多久也没有说啊？
     data_dir=data/amazon_data/beauty \ 
     semantic_id_path=<output_path_from_step_3>/pickle/merged_predictions_tensor.pt \
     num_hierarchies=4 # Please note that we add 1 for num_hierarchies because in the previous step we appended one additional digit to de-duplicate the semantic IDs we generate.
@@ -141,7 +142,7 @@ If you use GRID in your research, please cite:
 
 For questions and support:
 - Create an issue on GitHub
-- Contact the development team: Clark Mingxuan Ju (mju@snap.com), Liam Collins (lcollins2@snap.com), and Leonardo Neves (lneves@snap.com).
+- Contact the development team: Clark Mingxuan Ju (mju@snap.com), Liam Collins (lcollins2@snap.com), Bhuvesh Kumar (bhuvesh@snap.com) and Leonardo Neves (lneves@snap.com).
 
 ## Bibliography 
 

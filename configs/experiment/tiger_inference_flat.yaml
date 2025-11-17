@@ -4,7 +4,7 @@ semantic_id_path: ???
 ckpt_path: ???
 num_hierarchies: ???
 seed: 42
-sequence_length: 120
+sequence_length: 120 # 最长120截断？？截断最后的120？
 
 model:
   huggingface_model:
@@ -110,16 +110,16 @@ data_loading:
         _target_: torch.__dict__.get
         _args_:
         - int32
-    - name: embedding
-      type:
-        _target_: torch.__dict__.get
-        _args_:
-        - float32
-    - name: text
-      type:
-        _target_: torch.__dict__.get
-        _args_:
-        - bytes
+    # - name: embedding # 根本没用
+    #   type:
+    #     _target_: torch.__dict__.get
+    #     _args_:
+    #     - float32
+    # - name: text
+    #   type:
+    #     _target_: torch.__dict__.get
+    #     _args_:
+    #     - bytes
     - name: user_id
       is_item_ids: true
       type:

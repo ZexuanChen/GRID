@@ -23,52 +23,52 @@ data_loading:
         _target_: torch.__dict__.get
         _args_:
         - int32
-    - name: embedding
-      type:
-        _target_: torch.__dict__.get
-        _args_:
-        - float32
-    - name: text
-      type:
-        _target_: torch.__dict__.get
-        _args_:
-        - bytes
+    # - name: embedding
+    #   type:
+    #     _target_: torch.__dict__.get
+    #     _args_:
+    #     - float32
+    # - name: text
+    #   type:
+    #     _target_: torch.__dict__.get
+    #     _args_:
+    #     - bytes
     - name: user_id
       is_item_ids: true
       type:
         _target_: torch.__dict__.get
         _args_:
         - int32
-  dataset_config:
-    dataset:
-      _target_: src.data.loading.components.interfaces.SemanticIDDatasetConfig
-      user_id_field: user_id
-      min_sequence_length: 1
-      iterate_per_row: true
-      keep_user_id: true
-      features_to_consider: ${extract_fields_from_list_of_dicts:${data_loading.features_config.features},
-        "name", False, "is_item_ids", "True"}
-      num_placeholder_tokens_map: ${create_map_from_list_of_dicts:${data_loading.features_config.features},
-        "name", "num_placeholder_tokens"}
-      semantic_id_map: ${create_map_from_list_of_dicts:${data_loading.features_config.features},
-        "name", "semantic_ids"}
-      data_iterator:
-        _target_: src.data.loading.components.iterators.TFRecordIterator
-      preprocessing_functions:
-      - _target_: src.data.loading.components.pre_processing.filter_features_to_consider
-        _partial_: true
-      - _target_: src.data.loading.components.pre_processing.convert_to_dense_numpy_array
-        _partial_: true
-      - _target_: src.data.loading.components.pre_processing.convert_fields_to_tensors
-        _partial_: true
-      - _target_: src.data.loading.components.pre_processing.map_sparse_id_to_semantic_id
-        _partial_: true
-        features_to_apply:
-        - sequence_data
-        num_hierarchies: ${model.num_hierarchies}
-  train_dataloader_config:
+  # dataset_config:
+  #   dataset:
+  #     _target_: src.data.loading.components.interfaces.SemanticIDDatasetConfig
+  #     user_id_field: user_id
+  #     min_sequence_length: 1
+  #     iterate_per_row: true
+  #     keep_user_id: true
+  #     features_to_consider: ${extract_fields_from_list_of_dicts:${data_loading.features_config.features},
+  #       "name", False, "is_item_ids", "True"}
+  #     num_placeholder_tokens_map: ${create_map_from_list_of_dicts:${data_loading.features_config.features},
+  #       "name", "num_placeholder_tokens"}
+  #     semantic_id_map: ${create_map_from_list_of_dicts:${data_loading.features_config.features},
+  #       "name", "semantic_ids"}
+  #     data_iterator:
+  #       _target_: src.data.loading.components.iterators.TFRecordIterator
+  #     preprocessing_functions:
+  #     - _target_: src.data.loading.components.pre_processing.filter_features_to_consider
+  #       _partial_: true
+  #     - _target_: src.data.loading.components.pre_processing.convert_to_dense_numpy_array
+  #       _partial_: true
+  #     - _target_: src.data.loading.components.pre_processing.convert_fields_to_tensors
+  #       _partial_: true
+  #     - _target_: src.data.loading.components.pre_processing.map_sparse_id_to_semantic_id
+  #       _partial_: true
+  #       features_to_apply:
+  #       - sequence_data
+  #       num_hierarchies: ${model.num_hierarchies}
+  train_dataloader_config: # 这算个啥？不是类吗？
     dataloader:
-      _target_: src.data.loading.components.interfaces.SequenceDataloaderConfig
+      _target_: src.data.loading.components.interfaces.SequenceDataloaderConfig # 关键是训练集应该在哪里载入量化后的semid呢？
       dataset_class:
         _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable
         _partial_: true
@@ -85,19 +85,19 @@ data_loading:
       assign_files_by_size: false
       oov_token: null
       masking_token: -1
-      sequence_length: ${sequence_length}
-      padding_token: -1
+      sequence_length: ${sequence_length} # 序列长度指定有什么用呢？？指定长度后面好做填充成固定长度
+      padding_token: -1 # 都用-1替代的话
       drop_last: true
       persistent_workers: true
       collate_fn:
-        _target_: src.data.loading.components.collate_functions.collate_with_sid_causal_duplicate
+        _target_: src.data.loading.components.collate_functions.collate_with_sid_causal_duplicate # 收集的时候直接就是按照semid进行收集的
         _partial_: true
         sequence_length: ${data_loading.train_dataloader_config.dataloader.sequence_length}
         padding_token: ${data_loading.train_dataloader_config.dataloader.padding_token}
         sequence_field_name: sequence_data
         sid_hierarchy: ${model.num_hierarchies}
         max_batch_size: 512
-      dataset_config:
+      dataset_config: # 在这里定义semid的配置文件
         _target_: src.data.loading.components.interfaces.SemanticIDDatasetConfig
         user_id_field: user_id
         min_sequence_length: 1
@@ -130,7 +130,7 @@ data_loading:
           num_hierarchies: ${model.num_hierarchies}
       assign_all_files_per_worker: true
   val_dataloader_config:
-    dataloader:
+    dataloader: 
       _target_: src.data.loading.components.interfaces.SequenceDataloaderConfig
       dataset_class:
         _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable
@@ -157,22 +157,22 @@ data_loading:
         _partial_: true
         sequence_length: ${data_loading.train_dataloader_config.dataloader.sequence_length}
         padding_token: ${data_loading.train_dataloader_config.dataloader.padding_token}
-      dataset_config: ${data_loading.train_dataloader_config.dataloader.dataset_config}
+      dataset_config: ${data_loading.train_dataloader_config.dataloader.dataset_config} 
       pin_memory: false
   test_dataloader_config:
     dataloader:
       _target_: src.data.loading.components.interfaces.SequenceDataloaderConfig
-      dataset_class:
+      dataset_class: 
         _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable
         _partial_: true
       data_folder: ${paths.data_dir}/testing
       should_shuffle_rows: false
       labels:
         sequence_data:
-          transform:
+          transform: 
             _target_: src.data.loading.components.label_function.NextKTokenMasking
             next_k: ${model.num_hierarchies}
-      batch_size_per_device: 8
+      batch_size_per_device: 8 # 为什么测试的时候测试batch这么小？？？？dtabatch_size_per_device
       num_workers: 8
       timeout: 60
       assign_files_by_size: true
@@ -189,13 +189,13 @@ data_loading:
         padding_token: ${data_loading.train_dataloader_config.dataloader.padding_token}
       dataset_config: ${data_loading.train_dataloader_config.dataloader.dataset_config}
       pin_memory: false
-  datamodule:
+  datamodule: 
     _target_: src.data.loading.datamodules.sequence_datamodule.SequenceDataModule
-    train_dataloader_config: ${..train_dataloader_config.dataloader}
+    train_dataloader_config: ${..train_dataloader_config.dataloader} # 
     val_dataloader_config: ${..val_dataloader_config.dataloader}
     test_dataloader_config: ${..test_dataloader_config.dataloader}
 model:
-  huggingface_model:
+  huggingface_model: 
     _target_: transformers.T5EncoderModel
     config:
       _target_: transformers.T5Config
@@ -207,7 +207,7 @@ model:
       d_kv: 64
       num_layers: 4
   _target_: src.models.modules.semantic_id.tiger_generation_model.SemanticIDEncoderDecoder
-  feature_to_model_input_map:
+  feature_to_model_input_map: 
     sequence_data: input_ids
     user_id: user_id
   postprocessor: null
@@ -237,69 +237,71 @@ model:
       embedding_dim: ${model.huggingface_model.config.d_model}
   num_hierarchies: ${num_hierarchies}
   num_user_bins: null
-  codebooks: ${data_loading.train_dataloader_config.dataloader.dataset_config.semantic_id_map.sequence_data}
+  codebooks: ${data_loading.train_dataloader_config.dataloader.dataset_config.semantic_id_map.sequence_data} 
   mlp_layers: 2
-callbacks:
-  model_checkpoint:
+callbacks: #回调函数，在训练过程中会按照预定义的时机被自动调用，以完成特定任务
+  model_checkpoint: # 保存训练过程中模型的权重文件
     _target_: lightning.pytorch.callbacks.ModelCheckpoint
     dirpath: ${paths.output_dir}/checkpoints
-    filename: checkpoint_{epoch:03d}_{step:06d}
-    monitor: val/recall@5
+    # filename: checkpoint_{epoch:03d}_{step:06d} #文件名
+    filename: checkpoint_epoch_{epoch:03d}_step_{step:06d} #文件名
+    monitor: val/recall@5 # 定义要监控的指标到底是什么
     verbose: true
-    save_last: null
-    save_top_k: 1
-    mode: max
-    auto_insert_metric_name: true
-    save_weights_only: false
+    save_last: null #是否保存最后一个 epoch 的检查点
+    save_top_k: 1 #只保存性能最好的 1 个 检查点
+    mode: max #监控指标的方向，max表示指标越大越好
+    # auto_insert_metric_name: true
+    auto_insert_metric_name: false # 不要等号
+    save_weights_only: false #保存完整的模型状态（包括优化器、学习率调度器等）
     every_n_train_steps: null
     train_time_interval: null
-    every_n_epochs: null
+    every_n_epochs: null  #只会在指标（val/recall@5）变化时触发保存
     save_on_train_epoch_end: false
-  early_stopping:
+  early_stopping: # 早停回调函数
     _target_: lightning.pytorch.callbacks.EarlyStopping
-    monitor: ${callbacks.model_checkpoint.monitor}
-    min_delta: 0.0
-    patience: 10
+    monitor: ${callbacks.model_checkpoint.monitor} #与上面检查点回调一致
+    min_delta: 0.0 #指标最小改善量
+    patience: 10 #连续 10 次验证中性能没有提升，则停止训练
     verbose: true
     mode: ${callbacks.model_checkpoint.mode}
-    strict: true
-    check_finite: true
+    strict: true #是否强制检查 monitor 指标的存在
+    check_finite: true #如果监控指标变成 NaN 或 Inf，则提前停止训练
     stopping_threshold: null
     divergence_threshold: null
     check_on_train_epoch_end: false
-  model_summary:
-    _target_: lightning.pytorch.callbacks.RichModelSummary
-    max_depth: -1
-  restart_job:
+  model_summary: # 模型总结回调函数
+    _target_: lightning.pytorch.callbacks.RichModelSummary #打印模型结构
+    max_depth: -1 #-1表示不限深度，会打印整个模型的所有层级
+  restart_job: # 训练重启回调函数,训练重新启动时自动加载最新的 checkpoint
     _target_: src.utils.restart_job.RestartAndLoadCheckpointCallback
-    metadata_dir: ${paths.metadata_dir}
+    metadata_dir: ${paths.metadata_dir} # 最近一次保存的 checkpoint的目录，便于重启时自动加载
 logger:
   csv:
     _target_: lightning.pytorch.loggers.csv_logs.CSVLogger
     save_dir: ${paths.output_dir}
     name: csv/
     prefix: ''
-trainer:
+trainer: # 训练器配置
   _target_: lightning.pytorch.trainer.Trainer
-  default_root_dir: ${paths.output_dir}
-  min_steps: 1
-  max_steps: 320000
-  max_epochs: 10
+  default_root_dir: ${paths.output_dir} #默认的输出目录
+  min_steps: 1 #至少训练的 step 数
+  max_steps: 320000 # 最多训练的 step 数，，优先级高于 max_epochs。一旦训练达到这个步数就会提前结束
+  max_epochs: 10 # 最大训练轮数
   accelerator: gpu
   devices: -1
-  num_nodes: 1
-  precision: 32-true
-  log_every_n_steps: 100
-  val_check_interval: 1600
-  deterministic: false
-  accumulate_grad_batches: 16
+  num_nodes: 1 #用于多机训练时的节点数
+  precision: 32-true #32-true 是 Lightning 中的一种写法，等同于标准的 32 位精度
+  log_every_n_steps: 100 # 日志间隔
+  val_check_interval: 1600 # 验证间隔
+  deterministic: false #不固定随机种子
+  accumulate_grad_batches: 16 # 梯度累积，模拟更大bs
   profiler:
     _target_: lightning.pytorch.profilers.PassThroughProfiler
   strategy: ddp
-  sync_batchnorm: true
+  sync_batchnorm: true #是否在分布式训练中同步 BatchNorm 的均值和方差
   num_sanity_val_steps: 0
   min_epochs: 0
-paths:
+paths: # 保存路径配置
   root_dir: .
   data_dir: ${data_dir}
   log_dir: ${paths.root_dir}/logs
@@ -312,23 +314,23 @@ extras:
   enforce_tags: true
   print_config_warnings: true
   print_config: true
-loss:
+loss: # 损失函数配置
   loss_function:
     _target_: torch.nn.CrossEntropyLoss
-optim:
+optim: # 优化器配置
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true
     lr: 0.001
     weight_decay: 0.0001
   scheduler: null
-eval:
+eval:  #评估指标配置
   evaluator:
-    _target_: src.components.eval_metrics.SIDRetrievalEvaluator
+    _target_: src.components.eval_metrics.SIDRetrievalEvaluator #语义ID检索评估指标封装器，接收语义ID格式的模型输出，调用metrics计算检索指标
     top_k_list:
     - 5
     - 10
-    metrics:
+    metrics:   #具体自定义的评估指标
       ndcg:
         _target_: src.components.eval_metrics.NDCG
         _partial_: true

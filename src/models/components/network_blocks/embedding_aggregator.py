@@ -6,7 +6,7 @@ from src.models.components.network_blocks.aggregation_strategy import (
 )
 
 
-class EmbeddingAggregator(nn.Module):
+class EmbeddingAggregator(nn.Module): # 怎么进行聚合的？就是每次推理取最后一个嘛？
     """Embedding aggregator function. this determins how user embeddings are aggregated to form the final user embedding.
 
     Parameters

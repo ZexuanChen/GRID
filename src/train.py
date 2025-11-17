@@ -8,6 +8,9 @@ from omegaconf import DictConfig
 
 rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 # ------------------------------------------------------------------------------------ #
 # the setup_root above is equivalent to:
 # - adding project root dir to PYTHONPATH
@@ -55,7 +58,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 datamodule=pipeline_modules.datamodule,
                 ckpt_path=cfg.get("ckpt_path"),
             )
-        train_metrics = pipeline_modules.trainer.callback_metrics
+        train_metrics = pipeline_modules.trainer.callback_metrics 
 
         if cfg.get("test"):
             command_line_logger.info("Starting testing!")
@@ -65,9 +68,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             # to determine the best model path for testing.
             checkpoint_callback = getattr(
                 pipeline_modules.trainer, "checkpoint_callback", None
-            )
+            )  # trainer的checkpoint_callback属性在哪里定义的？ 在trainer的__init__方法中定义的  # "checkpoint_callback"对应哪个回调函数？ ModelCheckpoint
             if checkpoint_callback:
-                ckpt_path = getattr(checkpoint_callback, "best_model_path", None)
+                ckpt_path = getattr(checkpoint_callback, "best_model_path", None)  # 检查点回调函数的配置里面好像没有best_model_path属性？ 但是在checkpoint_callback的__init__方法中定义了best_model_path属性
+                # best_model_path在哪里赋值的？ 在checkpoint_callback的on_validation_end方法中赋值的
                 if ckpt_path == "":
                     ckpt_path = None
             if not ckpt_path:

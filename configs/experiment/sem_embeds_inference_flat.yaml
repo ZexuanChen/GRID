@@ -1,6 +1,6 @@
 # @package _global_
 data_dir: ???
-embedding_model: google/flan-t5-xl
+embedding_model: google/flan-t5-xl 
 
 task_name: inference
 id: ${now:%Y-%m-%d}/${now:%H-%M-%S}
@@ -23,7 +23,7 @@ model:
       pretrained_model_name_or_path: ${embedding_model}
     aggregator:
       _target_: src.models.components.network_blocks.embedding_aggregator.EmbeddingAggregator
-      aggregation_strategy:
+      aggregation_strategy: # 原来聚合操作是用在这里进行编码的？？？均值聚合编码后的表示
         _target_: src.models.components.network_blocks.aggregation_strategy.MeanAggregation
 callbacks:
   bq_writer: null
@@ -34,7 +34,7 @@ callbacks:
     write_interval: batch
     should_merge_files_on_main: true
     prediction_key_name: item_id
-    prediction_name: embedding
+    prediction_name: embedding # 这里是在写最终编码的语义表示
     should_merge_list_of_keyed_tensors_to_single_tensor: true
 ckpt_path: null
 paths:
@@ -54,6 +54,7 @@ trainer:
   max_epochs: 10
   accelerator: gpu
   devices: -1
+  # devices: 2
   num_nodes: 1
   precision: 32
   log_every_n_steps: 2500
@@ -62,104 +63,95 @@ trainer:
   accumulate_grad_batches: 1
   profiler:
     _target_: lightning.pytorch.profilers.PassThroughProfiler
-data_loading:
+data_loading: # 包括tokenizer的配置、特征feature的配置、dataset配置、datamodule的配置
   tokenizer_config:
-    max_length: 128
-    padding: max_length
-    truncation: true
-    add_special_tokens: true
-    postprocess_eos_token: false
+    max_length: 128 # 行为序列的最大长度，超过此长度的序列会被截断
+    padding: max_length # 未达到最大长度的序列会被填充到max_length
+    truncation: true # 是否启用截断，设置为true表示超长序列会被截断
+    add_special_tokens: true # 是否添加特殊token（如[CLS]和[SEP]）
+    postprocess_eos_token: false # 是否在后处理中处理eos标记，设置为false表示不处理
     tokenizer:
-      _target_: transformers.AutoTokenizer.from_pretrained
-      pretrained_model_name_or_path: ${embedding_model}
+      _target_: transformers.AutoTokenizer.from_pretrained # 使用HuggingFace的AutoTokenizer加载指定的预训练的tokenizer
+      pretrained_model_name_or_path: ${embedding_model} # 模型路径
   features_config:
     features:
-    - name: id
-      num_placeholder_tokens: 0
-      is_item_ids: true
-      embeddings: ???
+    - name: id # item id
+      num_placeholder_tokens: 0 # 该特征的占位符token数量
+      is_item_ids: true # 是否为item ID特征
+      embeddings:  # 特征对应的embedding（模型中未使用）
       type:
         _target_: torch.__dict__.get
         _args_:
-        - int32
-    - name: text
+        - int32 # 特征的数据类型为int32
+    - name: text # 文本特征
       type:
         _target_: torch.__dict__.get
         _args_:
-        - bytes
-      is_text: true
-    - name: embedding
-      type:
-        _target_: torch.__dict__.get
-        _args_:
-        - float32
-      is_embedding: true
+        - bytes # 类型为bytes
+      is_text: true # 是否为文本特征
   dataset_config:
     dataset:
-      _target_: src.data.loading.components.interfaces.ItemDatasetConfig
-      item_id_field: id
-      keep_item_id: true
-      iterate_per_row: true
+      _target_: src.data.loading.components.interfaces.ItemDatasetConfig 
+      item_id_field: id # 数据集中表示项目ID的字段名称
+      keep_item_id: true # 是否保留项目ID
+      iterate_per_row: true # 是否逐行迭代数据
       data_iterator:
-        _target_: src.data.loading.components.iterators.TFRecordIterator
-      features_to_consider: ${extract_fields_from_list_of_dicts:${data_loading.features_config.features},
-        "name", False, "is_text", "True"}
-      num_placeholder_tokens_map: ${create_map_from_list_of_dicts:${data_loading.features_config.features},
-        "name", "num_placeholder_tokens"}
+        _target_: src.data.loading.components.iterators.TFRecordIterator # 数据迭代器，默认使用TFRecordIterator
+      features_to_consider: ${extract_fields_from_list_of_dicts:${data_loading.features_config.features}, "name", False, "is_text", "True"} # 提取的特征列表，仅保留is_text为True的特征
+      num_placeholder_tokens_map: ${create_map_from_list_of_dicts:${data_loading.features_config.features}, "name", "num_placeholder_tokens"} # 每个特征对应的符token数量映射
       preprocessing_functions:
-      - _target_: src.data.loading.components.pre_processing.filter_features_to_consider
+      - _target_: src.data.loading.components.pre_processing.filter_features_to_consider # 筛选需要保留的特征
         _partial_: true
-      - _target_: src.data.loading.components.pre_processing.convert_to_dense_numpy_array
+      - _target_: src.data.loading.components.pre_processing.convert_to_dense_numpy_array # 将稀疏张量转换为NumPy数组
+        _partial_: true
+        features_to_apply:
+        - id # 指定需要转换的特征
+        - text
+      - _target_: src.data.loading.components.pre_processing.convert_fields_to_tensors # 将NumPy数组转换为张量
         _partial_: true
         features_to_apply:
         - id
-        - text
-      - _target_: src.data.loading.components.pre_processing.convert_fields_to_tensors
-        _partial_: true
-        features_to_apply:
-        - id
-      - _target_: src.data.loading.components.pre_processing.convert_bytes_to_string
+      - _target_: src.data.loading.components.pre_processing.convert_bytes_to_string # 将字节bytes数组转换为字符串
         _partial_: true
         features_to_apply:
         - text
-      - _target_: src.data.loading.components.pre_processing.tokenize_text_features
+      - _target_: src.data.loading.components.pre_processing.tokenize_text_features # 对字符串进行分词，生成token ID和attention mask
         _partial_: true
         features_to_apply:
         - text
         tokenizer_config: ${data_loading.tokenizer_config}
-      - _target_: src.data.loading.components.pre_processing.squeeze_tensor_in_place
+      - _target_: src.data.loading.components.pre_processing.squeeze_tensor_in_place # 去除多余的外层维度
         _partial_: true
         features_to_apply:
         - text
         - text_mask
-      field_type_map: ${create_map_from_list_of_dicts:${data_loading.features_config.features},
-        "name", "type"}
+      field_type_map: ${create_map_from_list_of_dicts:${data_loading.features_config.features}, "name", "type"} # 特征名称与数据类型的映射
   datamodule:
     _target_: src.data.loading.datamodules.sequence_datamodule.ItemDataModule
     predict_dataloader_config:
       _target_: src.data.loading.components.interfaces.ItemDataloaderConfig
       dataset_class:
-        _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable
+        _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable # 数据集类，使用UnboundedSequenceIterable
         _partial_: true
-      data_folder: ${paths.data_dir}/items
-      should_shuffle_rows: false
-      batch_size_per_device: 8
-      num_workers: 2
-      assign_files_by_size: true
-      timeout: 60
-      drop_last: false
-      pin_memory: false
-      persistent_workers: true
+      data_folder: ${paths.data_dir}/items # 数据文件夹路径
+      should_shuffle_rows: false # 是否对数据行进行随机打乱
+      batch_size_per_device: 8 # 每个设备的批量大小
+      num_workers: 2 # 数据加载的工作线程数
+      assign_files_by_size: true # 是否按文件大小分配数据
+      timeout: 60 # 数据加载超时时间
+      drop_last: false # 是否丢弃最后一个不完整的批次
+      pin_memory: false # 是否将数据加载到固定内存中
+      persistent_workers: true # 是否保持工作线程持久化
       collate_fn:
-        _target_: src.data.loading.components.collate_functions.collate_fn_items
+        _target_: src.data.loading.components.collate_functions.collate_fn_items # 数据整理函数，负责将特征映射到模型输入
         _partial_: true
         item_id_field: ${data_loading.dataset_config.dataset.item_id_field}
-        feature_to_input_name:
+        feature_to_input_name: # 特征和模型输入名称的映射
           id: item_ids
           text: text_tokens
           text_mask: text_mask
-          embedding: input_embedding
-      dataset_config: ${data_loading.dataset_config.dataset}
+          embedding: input_embedding 
+      dataset_config: ${data_loading.dataset_config.dataset} # 数据集的配置
       limit_files: null
 extras:
   ignore_warnings: false

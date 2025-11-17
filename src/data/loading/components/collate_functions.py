@@ -16,7 +16,7 @@ def identity_collate_fn(batch: Any) -> Any:
     """The default collate function that does nothing."""
     return batch
 
-
+# 这里控制的直接就是语义id了？
 def collate_with_sid_causal_duplicate(
     # batch can be a list or a dict
     # this function is used to create the generate contiguous sequences as data augmentation to improve the performance
@@ -89,7 +89,7 @@ def collate_with_sid_causal_duplicate(
     new_batch = {field_name: [] for field_name in batch}
     current_idx = 0
     for row_index, sequence in enumerate(batch[sequence_field_name]):
-        end_indices = torch.arange(
+        end_indices = torch.arange(# 滑动窗口构造所有可能的数据进行训练？
             2 * sid_hierarchy, sequence.shape[0] + 1, sid_hierarchy
         )
         for end_index in end_indices:
@@ -120,7 +120,7 @@ def collate_fn_inference_for_sequence(
     # batch can be a list or a dict
     batch: Union[List[Dict[str, torch.Tensor]], Dict[str, torch.Tensor]],
     id_field_name: str,
-    sequence_length: int = 200,
+    sequence_length: int = 200, # 最大序列长度是定好了的？截断200？
     padding_token: int = 0,
     oov_token: Optional[
         int
@@ -312,6 +312,7 @@ def collate_fn_items(
     model_input_data = ItemData()
 
     for field_name, field_value in batch.items():  # type: ignore
+        # print(field_name,type(field_value[0]))
         if field_name == item_id_field:
             model_input_data.item_ids = list(field_value)
 

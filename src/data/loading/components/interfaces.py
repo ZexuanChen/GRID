@@ -70,8 +70,8 @@ class SequenceDatasetConfig(BaseDatasetConfig):
     """
 
     user_id_field: str
-    data_iterator: RawDataIterator
-    preprocessing_functions: list[callable]  # type: ignore
+    data_iterator: RawDataIterator # 
+    preprocessing_functions: list[callable]  
     iterate_per_row: bool = False
     keep_user_id: bool = False
     num_placeholder_tokens_map: Optional[dict] = field(default_factory=dict)
@@ -83,11 +83,9 @@ class SequenceDatasetConfig(BaseDatasetConfig):
 
 
 @dataclass
-class SequenceDataloaderConfig(BaseDataloaderConfig):
+class SequenceDataloaderConfig(BaseDataloaderConfig): 
     """The generic dataloader configuration class for datasets of sequence data.
-
     Each instance of this class is run on one device.
-
     Parameters:
     ----------
     dataset_class: IterableDataset
@@ -134,7 +132,7 @@ class SequenceDataloaderConfig(BaseDataloaderConfig):
 
     dataset_class: IterableDataset
     data_folder: str
-    dataset_config: SequenceDatasetConfig
+    dataset_config: SequenceDatasetConfig # 这里配置数据集的具体设置
     batch_size_per_device: int
     num_workers: int
     assign_files_by_size: bool
@@ -270,14 +268,14 @@ class TokenizerConfig:
 
 
 @dataclass
-class ItemDatasetConfig(BaseDatasetConfig):
+class ItemDatasetConfig(BaseDatasetConfig): # 只定义了属性，没有定义运行顺序啊？
     """The configuration class used to store the item dataset configuration.
 
     Parameters
     ----------
     item_id_field: str
         The item id field.
-    preprocessing_functions: list[callable]
+    preprocessing_functions: list[callable] # 这里也需要传递进去的，但是不知道到底是在哪里使用的呢？
         The preprocessing functions to be applied to the data.
     data_iterator: RawDataIterator
         The data iterator.
@@ -306,7 +304,7 @@ class ItemDatasetConfig(BaseDatasetConfig):
     iterate_per_row: bool = True
     keep_item_id: bool = True
     features_to_consider: Optional[List[str]] = None
-    feature_map: Optional[Dict[str, str]] = None
+    feature_map: Optional[Dict[str, str]] = None # 改变特征名称的一个map
     field_type_map: Optional[Dict] = None
     embedding_map: Optional[Dict[str, torch.Tensor]] = None
     num_placeholder_tokens_map: Optional[Dict[str, int]] = None

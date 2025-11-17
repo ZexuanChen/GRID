@@ -75,5 +75,5 @@ def scale_loss_by_world_size_for_initialization_training_loop(
         # Use the default training loop
         opt = model.optimizers()
     opt.zero_grad()
-    model.manual_backward(loss)
+    model.manual_backward(loss) # 没有初始化时咋办？
     opt.step()

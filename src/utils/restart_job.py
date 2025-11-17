@@ -1,3 +1,5 @@
+# 这个文件包含了一些用于重启作业的工具函数，比如检查作业是否运行中、重启作业等。 # 作业可以理解为训练
+
 import os
 import signal
 import subprocess
@@ -57,8 +59,9 @@ class RestartAndLoadCheckpointCallback(Callback):
             callbacks=[RestartAndLoadCheckpointCallback(metadata_dir="./checkpoints")]
         ```
     """
-
-    def __init__(self, metadata_dir: Union[str, None] = None):
+    
+    def __init__(self, metadata_dir: Union[str, None] = None): #指定保存元数据的位置
+        
         """
         Initialize the RestartAndLoadCheckpointCallback.
 
@@ -78,19 +81,17 @@ class RestartAndLoadCheckpointCallback(Callback):
         self._load_metadata()
         self._save_metadata()
 
-    def _load_metadata(self) -> None:
+    def _load_metadata(self) -> None: # 加载元数据restart_metadata.json
         # Load metadata from disk, if it exists, then save it to the metadata attribute
         self.metadata: JobCheckpointMetadata = load_metadata_from_local_or_remote(
             self.metadata_path
         )
-
     @rank_zero_only
-    def _save_metadata(self) -> None:
+    def _save_metadata(self) -> None: #将 self.metadata 存入 restart_metadata.json
         """Save metadata to disk (from rank 0 only)."""
         save_metadata_to_local_or_remote(self.metadata, self.metadata_path)
-
     @rank_zero_only
-    def on_train_start(self, trainer, pl_module) -> None:
+    def on_train_start(self, trainer, pl_module) -> None: # 训练开始时记录训练环境信息
         """Record distributed training configuration on training start."""
         self.metadata.world_size = trainer.world_size
         self.metadata.node_rank = getattr(trainer, "node_rank", 0)
@@ -102,25 +103,24 @@ class RestartAndLoadCheckpointCallback(Callback):
             self.metadata.used_ports.append(master_port)
 
         self._save_metadata()
-
-    def on_exception(self, trainer, pl_module, exception) -> None:
+    def on_exception(self, trainer, pl_module, exception) -> None: # 训练中出现异常（崩溃、OOM 等）时执行此函数
         """Handle exceptions by saving state and initiating restart if needed."""
         command_line_logger.error(f"Exception caught: {exception}")
-        command_line_logger.error(f"Stack trace: {traceback.format_exc()}")
+        command_line_logger.error(f"Stack trace: {traceback.format_exc()}") #打印错误信息和堆栈
 
         command_line_logger.info("Cleaning up and handling restart logic")
 
         self.metadata.current_run = get_attribute_from_metadata_file(
             self.metadata_path, "current_run"
-        )
+        ) #第几次重启
 
         self.metadata.restarts.append(
             RestartMetadata(
                 time=datetime.now().isoformat(),
                 exception=str(exception),
                 run_number=self.metadata.current_run,
-            ).to_dict()
-        )
+            ).to_dict() 
+        ) #将当前这次异常（时间、内容、运行编号）记录到 restarts 列表中
         self.metadata.current_run += 1
         command_line_logger.info(f"Restarting job. Current metadata: {self.metadata}")
         self._save_metadata()
@@ -133,7 +133,6 @@ class RestartAndLoadCheckpointCallback(Callback):
 
         command_line_logger.info(f"Resources cleaned up.")
         os._exit(1)
-
 
 ## Launcher
 

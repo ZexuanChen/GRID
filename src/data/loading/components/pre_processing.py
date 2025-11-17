@@ -23,7 +23,7 @@ def convert_bytes_to_string(
     # For each feature to apply, cast its np.ndarray of bytes to string.
     for k in batch_or_row:
         if is_feature_in_features_to_apply(features_to_apply, k):
-            batch_or_row[k] = batch_or_row[k].astype(str)
+            batch_or_row[k] = np.vectorize(lambda x: x.decode('utf-8'))(batch_or_row[k])
     return batch_or_row
 
 def is_feature_in_features_to_apply(features_to_apply: List[str], k: str) -> bool:
@@ -37,9 +37,9 @@ def filter_features_to_consider(
     dataset_config: BaseDatasetConfig,
     features_to_apply: Optional[List[str]] = [],
     **kwargs,
-) -> Dict[str, tf.Tensor]:
+) -> Dict[str, tf.Tensor]:# 筛选过滤
     batch_or_row = map_feature_names(batch_or_row, dataset_config)
-    features_to_consider = set(dataset_config.features_to_consider)
+    features_to_consider = set(dataset_config.features_to_consider) # 要保留batch内的哪些特征重组成新的
     if hasattr(dataset_config, "keep_user_id") and dataset_config.keep_user_id:
         if dataset_config.user_id_field not in features_to_consider:
             features_to_consider.add(dataset_config.user_id_field)
@@ -74,7 +74,7 @@ def map_feature_names(
     **kwargs,
 ) -> Dict[str, np.ndarray]:
     # Given a batch or row, map the feature names to the desired feature names.
-    if dataset_config.feature_map:
+    if dataset_config.feature_map:# 哪里来的feature map？？为什么要变换特征名字？
         batch_or_row = {
             v: batch_or_row[k]
             for k, v in dataset_config.feature_map.items()
@@ -149,7 +149,7 @@ def map_sparse_id_to_semantic_id(
     return row
 
 
-def trim_sequence_row(
+def trim_sequence_row( # 根本没用到这个函数？？所以到底有没有截断呢？
     row: Dict[str, Any],
     dataset_config: BaseDatasetConfig,
     sequence_length: int,
@@ -189,7 +189,7 @@ def trim_sequence_row(
     else:
         for k, v in row.items():
             if is_feature_in_features_to_apply(features_to_apply, k):
-                v = v[:sequence_length]
+                v = v[:sequence_length] # 超过200的序列长度会被截断？？？
                 row[k] = v
     return row
 

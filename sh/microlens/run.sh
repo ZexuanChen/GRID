@@ -1,0 +1,2 @@
+# python -m src.inference experiment=sem_embeds_inference_flat data_dir=data/amazon_data/sports
+python -m src.inference experiment=sem_embeds_inference_flat data_dir=data/microlens

@@ -1,3 +1,5 @@
+# 这个文件包含了一些用于推理的工具函数，比如将预测结果写入BigQuery等。 # bigquery是什么？ # 它是Google Cloud Platform提供的一种无服务器、可扩展的数据分析平台，用于存储、查询和分析大规模数据集。
+
 import datetime
 import logging
 import os
@@ -164,6 +166,7 @@ class BaseBufferedWriter(BasePredictionWriter):
         # this is an indicator of something not working fully as expected
         # i'll investigate this issue later
 
+# 将预测结果写入本地的pickle文件中
 class LocalPickleWriter(BaseBufferedWriter):
     """
     Callback to write predictions to local pickle files during inference.
@@ -223,7 +226,7 @@ class LocalPickleWriter(BaseBufferedWriter):
         )
 
     @retry()
-    def on_predict_end(
+    def on_predict_end(# 预测解释的时候调用
         self,
         trainer: Trainer,
         pl_module: LightningModule,
