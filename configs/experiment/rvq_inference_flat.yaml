@@ -4,15 +4,16 @@ embedding_path: ???
 embedding_dim: ???
 num_hierarchies: ???
 codebook_width: ??? 
+ckpt_path: ???
 
-task_name: train
+task_name: inference
 id: ${now:%Y-%m-%d}/${now:%H-%M-%S}
 tags:
-- amazon-assign-ids-train
-train: true
-test: false
-ckpt_path: null
-seed: 42
+- amazon-assign-ids-inference
+
+
+# 注释：种子
+# seed: 42
 data_loading:
   features_config:
     features:
@@ -44,13 +45,13 @@ data_loading:
       num_placeholder_tokens_map: ${create_map_from_list_of_dicts:${data_loading.features_config.features},
         "name", "num_placeholder_tokens"}
       preprocessing_functions:
-      - _target_: src.data.loading.components.pre_processing.filter_features_to_consider # 特征过滤，只保留配置中指定的特征
+      - _target_: src.data.loading.components.pre_processing.filter_features_to_consider
         _partial_: true
-      - _target_: src.data.loading.components.pre_processing.convert_to_dense_numpy_array # 稀疏Tensor转密集numpy数组
+      - _target_: src.data.loading.components.pre_processing.convert_to_dense_numpy_array
         _partial_: true
-      - _target_: src.data.loading.components.pre_processing.convert_fields_to_tensors # numpy数组转PyTorch Tensor
+      - _target_: src.data.loading.components.pre_processing.convert_fields_to_tensors
         _partial_: true
-      - _target_: src.data.loading.components.pre_processing.map_sparse_id_to_embedding # ID到嵌入向量的映射
+      - _target_: src.data.loading.components.pre_processing.map_sparse_id_to_embedding
         _partial_: true
         sparse_id_field: id
         embedding_field_to_add: embedding
@@ -58,19 +59,22 @@ data_loading:
         "name", "type"}
   datamodule:
     _target_: src.data.loading.datamodules.sequence_datamodule.ItemDataModule
-    train_dataloader_config:
+    #注释：train_dataloader_config变predict_dataloader_config
+    predict_dataloader_config:
       _target_: src.data.loading.components.interfaces.ItemDataloaderConfig
       dataset_class:
-        _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable # 无界数据集：训练时无限迭代，评估时只迭代一次
+        _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable
         _partial_: true
       data_folder: ${paths.data_dir}/items
       should_shuffle_rows: true
-      batch_size_per_device: 2048
-      num_workers: 12
-      assign_files_by_size: false
+      batch_size_per_device: 128
+      num_workers: 2
+      #注释：改true
+      assign_files_by_size: true
       timeout: 60
       drop_last: false
-      pin_memory: true
+      #注释：改false
+      pin_memory: false
       persistent_workers: true
       collate_fn:
         _target_: src.data.loading.components.collate_functions.collate_fn_items
@@ -84,77 +88,37 @@ data_loading:
       dataset_config: ${data_loading.dataset_config.dataset}
       limit_files: null
       assign_all_files_per_worker: true
-    val_dataloader_config:
-      _target_: src.data.loading.components.interfaces.ItemDataloaderConfig
-      dataset_class:
-        _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable
-        _partial_: true
-      data_folder: ${paths.data_dir}/items
-      should_shuffle_rows: false
-      batch_size_per_device: 256
-      num_workers: 2
-      assign_files_by_size: true
-      timeout: 60
-      drop_last: false
-      pin_memory: false
-      persistent_workers: true
-      collate_fn:
-        _target_: src.data.loading.components.collate_functions.collate_fn_items
-        _partial_: true
-        item_id_field: ${data_loading.dataset_config.dataset.item_id_field}
-        feature_to_input_name:
-          id: item_ids
-          text: text_tokens
-          text_mask: text_mask
-          embedding: input_embedding
-      dataset_config: ${data_loading.dataset_config.dataset}
-      limit_files: null
-    test_dataloader_config:
-      _target_: src.data.loading.components.interfaces.ItemDataloaderConfig
-      dataset_class:
-        _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable
-        _partial_: true
-      data_folder: ${paths.data_dir}/items
-      should_shuffle_rows: false
-      batch_size_per_device: 256
-      num_workers: 2
-      assign_files_by_size: true
-      timeout: 60
-      drop_last: false
-      pin_memory: false
-      persistent_workers: true
-      collate_fn:
-        _target_: src.data.loading.components.collate_functions.collate_fn_items
-        _partial_: true
-        item_id_field: ${data_loading.dataset_config.dataset.item_id_field}
-        feature_to_input_name:
-          id: item_ids
-          text: text_tokens
-          text_mask: text_mask
-          embedding: input_embedding
-      dataset_config: ${data_loading.dataset_config.dataset}
-      limit_files: null
+    #删除了val和test
+    #rvq和rq-vae相比，没有encoder和decoder
 model:
   _target_: src.modules.clustering.residual_quantization.ResidualQuantization
   track_residuals: true
   verbose: true
-  train_layer_wise: true # 每层单独训练的？？？
+  train_layer_wise: true
   normalize_residuals: true
   input_dim: ${embedding_dim}
   n_layers: ${num_hierarchies}
   init_buffer_size: 3072
   quantization_layer:
-    _target_: src.models.modules.clustering.mini_batch_kmeans.MiniBatchKMeans
+    _target_: src.modules.clustering.vector_quantization.VectorQuantization
     n_clusters: ${codebook_width}
     n_features: ${model.input_dim}
     distance_function:
       _target_: src.components.distance_functions.SquaredEuclideanDistance
+    quantization_strategy:
+      _target_: src.components.quantization_strategies.STEQuantization
+      distance_function: ${model.quantization_layer.distance_function}
+      compute_reconstruction_loss_embeddings: false
     initializer:
       _target_: src.components.clustering_initializers.KMeansPlusPlusInitInitializer
       n_clusters: ${model.quantization_layer.n_clusters}
-      distance_function: ${model.quantization_layer.distance_function}
       initialize_on_cpu: false
+      distance_function: ${model.quantization_layer.distance_function}
     init_buffer_size: ${model.init_buffer_size}
+    #去掉loss
+    loss_function: null
+      # _target_: src.components.loss_functions.BetaQuantizationLoss
+      # beta: 0.25
     optimizer: null
   optimizer: ${optim.optimizer}
   scheduler: null
@@ -162,26 +126,27 @@ model:
   training_loop_function:
     _target_: src.components.training_loop_functions.scale_loss_by_world_size_for_initialization_training_loop
     _partial_: true
+#checkpoint变pickle_writer
 callbacks:
-  model_checkpoint:
-    _target_: lightning.pytorch.callbacks.ModelCheckpoint
-    dirpath: ${paths.output_dir}/checkpoints
-    filename: checkpoint_{epoch:03d}_{step:06d}
-    monitor: train/loss # 记录要监控的指标
-    verbose: true
-    save_last: null
-    save_top_k: 1
-    mode: min
-    auto_insert_metric_name: false
-    save_weights_only: false
-    every_n_train_steps: ${trainer.max_steps}
-    train_time_interval: null
-    every_n_epochs: null
-    save_on_train_epoch_end: null
-  early_stopping: null
-  model_summary:
-    _target_: lightning.pytorch.callbacks.RichModelSummary
-    max_depth: -1
+  bq_writer:
+    table_id: ???
+  pickle_writer:
+    _target_: src.utils.inference_utils.LocalPickleWriter
+    output_dir: ${paths.output_dir}/pickle
+    flush_frequency: 100000
+    write_interval: batch
+    should_merge_files_on_main: true
+    prediction_key_name: item_id
+    prediction_name: cluster_ids
+    post_processing_functions:
+    - function:
+        _target_: src.utils.tensor_utils.deduplicate_rows_in_tensor
+        _partial_: true
+      main_only: true
+    - function:
+        _target_: src.utils.tensor_utils.transpose_tensor_from_file
+        _partial_: true
+      main_only: true
 logger:
   csv:
     _target_: lightning.pytorch.loggers.csv_logs.CSVLogger
@@ -192,14 +157,14 @@ trainer:
   _target_: lightning.pytorch.trainer.Trainer
   default_root_dir: ${paths.output_dir}
   min_steps: 1
-  max_steps: 30
+  max_steps: 80000
   max_epochs: 10
   accelerator: gpu
   devices: -1
   num_nodes: 1
   precision: bf16-mixed
-  log_every_n_steps: 10
-  val_check_interval: 100000000
+  log_every_n_steps: 2500
+  val_check_interval: 5000
   deterministic: false
   accumulate_grad_batches: 1
   profiler:
@@ -220,12 +185,10 @@ extras:
   enforce_tags: true
   print_config_warnings: true
   print_config: true
-optim:
-  optimizer:
-    _target_: torch.optim.SGD
-    _partial_: true
-    lr: 0.5
-  scheduler: null
-eval:
-  evaluator:
-    placeholder_token_buffer: 0
+#推理不需要optimizer和eval
+# optim:
+#   optimizer:
+#     lr: 0.001
+# eval:
+#   evaluator:
+#     placeholder_token_buffer: 0

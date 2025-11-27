@@ -13,7 +13,7 @@ from src.models.components.interfaces import SharedKeyAcrossPredictionsOutput
 from src.models.components.network_blocks.embedding_aggregator import (
     EmbeddingAggregator,
 )
-from src.models.modules.base_module import BaseModule
+from src.models.modules.base_module import BaseModule # basemodule是什么？ 基础模块，定义了一些基础的方法，比如前向传播，反向传播，优化器，学习率调度器，损失函数，评估器等。
 
 
 class TransformerBaseModule(BaseModule):

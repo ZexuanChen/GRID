@@ -331,7 +331,7 @@ class ItemDataloaderConfig(BaseDataloaderConfig):
     assign_all_files_per_worker: bool = False
 
 
-@dataclass
+@dataclass # 这是什么修饰器？ 用于定义数据类，自动生成 __init__ 方法 # 什么意思？ 可以直接在类中定义属性，而不需要在__init__方法中定义
 class ItemData:
     """The data class used to wrap a batch of item features.
 

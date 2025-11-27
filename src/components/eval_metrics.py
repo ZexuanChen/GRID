@@ -12,6 +12,7 @@ from torchmetrics.utilities.distributed import gather_all_tensors
 class CustomMeanReductionMetric(torchmetrics.Metric):
     """
     Custom metric class that uses mean reduction and supports distributed training.
+    # 自定义的指标类，用于计算指标平均值并支持分布式训练
     """
 
     def __init__(self, **kwargs: Any):
@@ -138,6 +139,12 @@ class Recall(CustomRetrievalMetric):
 ## Evaluators
 
 class Evaluator:
+    """
+    评估器类，用于计算模型在验证集上的指标
+    
+    Args:
+        metrics (Dict[str, Metric]): 一个字典，键为指标名称，值为指标对象
+    """
     def __init__(self, metrics: Dict[str, Metric], *args, **kwargs):
         self.metrics = metrics
 
@@ -155,8 +162,8 @@ class Evaluator:
 
 class RetrievalEvaluator(Evaluator):
     """
-    Wrapper for retrieval evaluation metrics.
-    It takes model outputs and automatically calculates the retrieval metrics.
+    Wrapper for retrieval evaluation metrics. # 检索评估指标包装器
+    It takes model outputs and automatically calculates the retrieval metrics. # 计算模型输出的检索指标
     """
 
     def __init__(
@@ -261,8 +268,8 @@ class RetrievalEvaluator(Evaluator):
 
 class SIDRetrievalEvaluator(Evaluator):
     """
-    Wrapper for retrieval evaluation metrics for semantic IDs.
-    It takes model outputs in semantic IDs and automatically calculates the retrieval metrics.
+    Wrapper for retrieval evaluation metrics for semantic IDs. # 语义ID检索评估指标包装器
+    It takes model outputs in semantic IDs and automatically calculates the retrieval metrics. # 计算语义ID的检索指标
     """
 
     def __init__(
@@ -277,8 +284,9 @@ class SIDRetrievalEvaluator(Evaluator):
             for metric_name, metric_object in metrics.items()
             for top_k in top_k_list
         }
-
-    def __call__(
+        
+    # 计算评估指标
+    def __call__( 
         self,
         marginal_probs: torch.Tensor,
         generated_ids: torch.Tensor,

@@ -221,6 +221,7 @@ class ResidualQuantization(LightningModule):
                 modules=[copy.deepcopy(quantization_layer) for _ in range(n_layers)]
             )
 
+    # 前向传播，将输入的embeddings映射到预定义的聚类中心上
     def forward(
         self, embeddings: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:

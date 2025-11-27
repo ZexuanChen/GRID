@@ -18,25 +18,30 @@ model:
   n_layers: ${num_hierarchies}
   init_buffer_size: 3072
   quantization_layer:
-    _target_: src.models.modules.clustering.mini_batch_kmeans.MiniBatchKMeans
+    _target_: src.modules.clustering.vector_quantization.VectorQuantization
     n_clusters: ${codebook_width}
     n_features: ${model.input_dim}
     distance_function:
       _target_: src.components.distance_functions.SquaredEuclideanDistance
+    quantization_strategy:
+      _target_: src.components.quantization_strategies.STEQuantization
+      distance_function: ${model.quantization_layer.distance_function}
+      compute_reconstruction_loss_embeddings: false
     initializer:
       _target_: src.components.clustering_initializers.KMeansPlusPlusInitInitializer
       n_clusters: ${model.quantization_layer.n_clusters}
-      distance_function: ${model.quantization_layer.distance_function}
       initialize_on_cpu: false
+      distance_function: ${model.quantization_layer.distance_function}
     init_buffer_size: ${model.init_buffer_size}
-  optimizer: null
+    loss_function:
+      _target_: src.components.loss_functions.BetaQuantizationLoss
+      beta: 0.25
+    optimizer: null
   scheduler: null
   quantization_layer_list: null
   training_loop_function:
     _target_: src.components.training_loop_functions.scale_loss_by_world_size_for_initialization_training_loop
     _partial_: true
-  loss_function: null
-  evaluator: null
 task_name: inference
 id: ${now:%Y-%m-%d}/${now:%H-%M-%S}
 tags:
@@ -45,7 +50,7 @@ experiment: null
 callbacks:
   bq_writer:
     table_id: ???
-  pickle_writer: # 用来保存predict的结果，item_id和cluster_ids # 量化的结果怎么保存呢？predict的结果如何自动保存？？？
+  pickle_writer:
     _target_: src.utils.inference_utils.LocalPickleWriter
     output_dir: ${paths.output_dir}/pickle
     flush_frequency: 100000
@@ -80,20 +85,23 @@ trainer:
   _target_: lightning.pytorch.trainer.Trainer
   default_root_dir: ${paths.output_dir}
   min_steps: 1
-  max_steps: 80000
+  max_steps: 3000
   max_epochs: 10
   accelerator: gpu
   devices: -1
   num_nodes: 1
   precision: bf16-mixed
-  log_every_n_steps: 2500
-  val_check_interval: 5000
+  log_every_n_steps: 10
+  val_check_interval: 100000000
   deterministic: false
   accumulate_grad_batches: 1
   profiler:
     _target_: lightning.pytorch.profilers.PassThroughProfiler
+  strategy: ddp_find_unused_parameters_true
+  sync_batchnorm: true
+  num_sanity_val_steps: 0
 data_loading:
-  features_config: # 数据输入的配置
+  features_config:
     features:
     - name: id
       num_placeholder_tokens: 0
@@ -102,14 +110,14 @@ data_loading:
         _target_: torch.load
         _args_:
         - _target_: src.utils.file_utils.open_local_or_remote
-          file_path: ${embedding_path} # 在这里传入embeding？？？那原始的有啥用呢？
+          file_path: ${embedding_path}
           mode: rb
       type:
         _target_: torch.__dict__.get
         _args_:
         - int32
   dataset_config:
-    dataset: # 数据集的配置
+    dataset:
       _target_: src.data.loading.components.interfaces.ItemDatasetConfig
       item_id_field: id
       keep_item_id: true
@@ -135,16 +143,16 @@ data_loading:
         embedding_field_to_add: embedding
       field_type_map: ${create_map_from_list_of_dicts:${data_loading.features_config.features},
         "name", "type"}
-  datamodule: # target是要实例化的类
+  datamodule:
     _target_: src.data.loading.datamodules.sequence_datamodule.ItemDataModule
-    predict_dataloader_config: # 下面是参数？类下面还有类？
+    predict_dataloader_config:
       _target_: src.data.loading.components.interfaces.ItemDataloaderConfig
       dataset_class:
         _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable
         _partial_: true
       data_folder: ${paths.data_dir}/items
       should_shuffle_rows: false
-      batch_size_per_device: 128
+      batch_size_per_device: 256
       num_workers: 2
       assign_files_by_size: true
       timeout: 60

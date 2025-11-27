@@ -23,6 +23,8 @@ class BaseModule(LightningModule):
         training_loop_function: callable = None,
     ) -> None:
         """
+        基础模型类，所有模型都继承自这个类, 包含了模型训练、验证、测试的基本流程
+        
         Args:
             model: The model to train.
             optimizer: The optimizer to use for the model.
@@ -123,7 +125,7 @@ class BaseModule(LightningModule):
         self.trainer.should_stop = True  # stop all workers
         self.trainer.logger.finalize(status="failure")
 
-    def log_metrics( # 是自动调用这个函数把评估器里面的指标给全部答应出来
+    def log_metrics( # 是自动调用这个函数把评估器里面的指标给全部打印出来
         self,
         prefix: str,
         on_step=False,

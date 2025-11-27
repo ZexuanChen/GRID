@@ -1,5 +1,5 @@
 # 这个文件和run3.sh有什么区别？
-# 这个文件是用来训练tiger模型的，但是只训练100步，用来测试是否能正常运行
+# 这个文件是用来训练tiger模型的，但是只训练少量步数，用来测试是否能正常运行
 
 python -m src.train experiment=tiger_train_flat \
     data_dir=data/amazon_data/beauty \

@@ -86,7 +86,7 @@ data_loading:
       oov_token: null
       masking_token: -1
       sequence_length: ${sequence_length} # 序列长度指定有什么用呢？？指定长度后面好做填充成固定长度
-      padding_token: -1 # 都用-1替代的话
+      padding_token: -1 
       drop_last: true
       persistent_workers: true
       collate_fn:
@@ -172,7 +172,7 @@ data_loading:
           transform: 
             _target_: src.data.loading.components.label_function.NextKTokenMasking
             next_k: ${model.num_hierarchies}
-      batch_size_per_device: 8 # 为什么测试的时候测试batch这么小？？？？dtabatch_size_per_device
+      batch_size_per_device: 8 # 为什么测试的时候测试batch这么小？？？？
       num_workers: 8
       timeout: 60
       assign_files_by_size: true

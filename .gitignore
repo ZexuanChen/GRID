@@ -197,3 +197,5 @@ data/
 
 logs/inference
 logs/train
+
+logs/

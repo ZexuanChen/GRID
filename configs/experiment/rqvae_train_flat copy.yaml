@@ -44,13 +44,13 @@ data_loading:
       num_placeholder_tokens_map: ${create_map_from_list_of_dicts:${data_loading.features_config.features},
         "name", "num_placeholder_tokens"}
       preprocessing_functions:
-      - _target_: src.data.loading.components.pre_processing.filter_features_to_consider # 特征过滤，只保留配置中指定的特征
+      - _target_: src.data.loading.components.pre_processing.filter_features_to_consider
         _partial_: true
-      - _target_: src.data.loading.components.pre_processing.convert_to_dense_numpy_array # 稀疏Tensor转密集numpy数组
+      - _target_: src.data.loading.components.pre_processing.convert_to_dense_numpy_array
         _partial_: true
-      - _target_: src.data.loading.components.pre_processing.convert_fields_to_tensors # numpy数组转PyTorch Tensor
+      - _target_: src.data.loading.components.pre_processing.convert_fields_to_tensors
         _partial_: true
-      - _target_: src.data.loading.components.pre_processing.map_sparse_id_to_embedding # ID到嵌入向量的映射
+      - _target_: src.data.loading.components.pre_processing.map_sparse_id_to_embedding
         _partial_: true
         sparse_id_field: id
         embedding_field_to_add: embedding
@@ -61,7 +61,7 @@ data_loading:
     train_dataloader_config:
       _target_: src.data.loading.components.interfaces.ItemDataloaderConfig
       dataset_class:
-        _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable # 无界数据集：训练时无限迭代，评估时只迭代一次
+        _target_: src.data.loading.components.dataloading.UnboundedSequenceIterable
         _partial_: true
       data_folder: ${paths.data_dir}/items
       should_shuffle_rows: true
@@ -138,36 +138,99 @@ model:
   _target_: src.modules.clustering.residual_quantization.ResidualQuantization
   track_residuals: true
   verbose: true
-  train_layer_wise: true # 每层单独训练的？？？
-  normalize_residuals: true
+  train_layer_wise: false
+  normalize_residuals: false
   input_dim: ${embedding_dim}
   n_layers: ${num_hierarchies}
-  init_buffer_size: 3072
+  normalization_layer:
+    _target_: torch.nn.Sequential
+    _args_:
+    - _target_: torch.nn.BatchNorm1d
+      num_features: ${model.input_dim}
+    - _target_: src.models.components.network_blocks.normalize_layer.NormalizeLayer
+  # PCA和白化配置
+  use_pca_whitening: true
+  pca_components: 128
+  whitening_type: "zca"
+  # MLP编码器和解码器配置
+  encoder_hidden_sizes: [2048, 1024, 512, 256]
+  decoder_hidden_sizes: [2048, 1024, 512, 256]
+  latent_size: 128
+  encoder:
+    _target_: src.models.components.network_blocks.mlp.MLP
+    input_dim: ${model.input_dim}
+    hidden_dim_list: ${model.encoder_hidden_sizes}
+    output_dim: ${model.latent_size}
+    activation:
+      _target_: torch.nn.ReLU
+      _partial_: true
+  decoder:
+    _target_: src.models.components.network_blocks.mlp.MLP
+    input_dim: ${model.latent_size}
+    hidden_dim_list: ${model.decoder_hidden_sizes}
+    output_dim: ${model.input_dim}
+    activation:
+      _target_: torch.nn.ReLU
+      _partial_: true
+  init_buffer_size: 3072 # 达到一定数量才进行初始化，不是用一个batch的数据初始哈
   quantization_layer:
-    _target_: src.models.modules.clustering.mini_batch_kmeans.MiniBatchKMeans
+    _target_: src.modules.clustering.vector_quantization.VectorQuantization
     n_clusters: ${codebook_width}
-    n_features: ${model.input_dim}
-    distance_function:
+    n_features: ${model.encoder.output_dim}
+    # EMA码本学习配置
+    vq_type: "ema"  # 'ema' 或 'standard'
+    beta: 0.99
+    gamma: 0.99
+    epsilon: 1e-5
+    distance_function: # 平方和作为距离选择最近的码本进行量化
       _target_: src.components.distance_functions.SquaredEuclideanDistance
-    initializer:
-      _target_: src.components.clustering_initializers.KMeansPlusPlusInitInitializer
-      n_clusters: ${model.quantization_layer.n_clusters}
+    quantization_strategy: # 梯度直通code=h+(code-h.detach())
+      _target_: src.components.quantization_strategies.STEQuantization
       distance_function: ${model.quantization_layer.distance_function}
+      compute_reconstruction_loss_embeddings: true
+      ema_enabled: ${model.quantization_layer.vq_type == "ema"}
+      ema_beta: ${model.quantization_layer.beta}
+      ema_gamma: ${model.quantization_layer.gamma}
+      ema_epsilon: ${model.quantization_layer.epsilon}
+    initializer: # 初始化
+      _target_: src.components.clustering_initializers.ClusteringModuleInitializer
+      n_clusters: ${model.quantization_layer.n_clusters}
       initialize_on_cpu: false
+      clustering_module:
+        _target_: src.models.modules.clustering.mini_batch_kmeans.MiniBatchKMeans
+        n_clusters: ${model.quantization_layer.n_clusters}
+        n_features: ${model.quantization_layer.n_features}
+        distance_function: ${model.quantization_layer.distance_function}
+        initializer:
+          _target_: src.components.clustering_initializers.KMeansPlusPlusInitInitializer
+          n_clusters: ${model.quantization_layer.n_clusters}
+          distance_function: ${model.quantization_layer.distance_function}
+          initialize_on_cpu: false
+        init_buffer_size: ${model.init_buffer_size}
+        update_manually: true
+      max_iter: 1000
     init_buffer_size: ${model.init_buffer_size}
+    loss_function:
+      _target_: src.components.loss_functions.BetaQuantizationLoss
+      beta: 0.25
+      reduction: mean
     optimizer: null
-  optimizer: ${optim.optimizer}
-  scheduler: null
-  quantization_layer_list: null
+  reconstruction_loss_function:
+    _target_: torch.nn.MSELoss
+    reduction: mean
+  reconstruction_loss_weight: 1.0
   training_loop_function:
     _target_: src.components.training_loop_functions.scale_loss_by_world_size_for_initialization_training_loop
     _partial_: true
+  optimizer: ${optim.optimizer}
+  scheduler: null
+  quantization_layer_list: null
 callbacks:
   model_checkpoint:
     _target_: lightning.pytorch.callbacks.ModelCheckpoint
     dirpath: ${paths.output_dir}/checkpoints
     filename: checkpoint_{epoch:03d}_{step:06d}
-    monitor: train/loss # 记录要监控的指标
+    monitor: train/loss # 记录根据什么指标选择最优的模型
     verbose: true
     save_last: null
     save_top_k: 1
@@ -192,13 +255,13 @@ trainer:
   _target_: lightning.pytorch.trainer.Trainer
   default_root_dir: ${paths.output_dir}
   min_steps: 1
-  max_steps: 30
+  max_steps: 3000 # 只管最大步数？为什么最大步数设置这么大？为什么运行速度这么慢？
   max_epochs: 10
   accelerator: gpu
   devices: -1
   num_nodes: 1
   precision: bf16-mixed
-  log_every_n_steps: 10
+  log_every_n_steps: 50
   val_check_interval: 100000000
   deterministic: false
   accumulate_grad_batches: 1
@@ -222,10 +285,16 @@ extras:
   print_config: true
 optim:
   optimizer:
-    _target_: torch.optim.SGD
+    _target_: torch.optim.Adagrad
     _partial_: true
-    lr: 0.5
-  scheduler: null
+    lr: 0.001
+    weight_decay: 0.0
+  scheduler:
+    _target_: src.components.scheduler.WarmupLinearScheduler
+    _partial_: true
+    warmup_steps: 1000
+    min_ratio: 0.01
+    scheduler_steps: ${trainer.max_steps}
 eval:
   evaluator:
     placeholder_token_buffer: 0

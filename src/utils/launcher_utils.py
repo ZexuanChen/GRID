@@ -1,6 +1,5 @@
 # 这个脚本用于启动训练和推理任务
 # 它使用hydra来管理配置，lightning来管理训练和推理
-# 它还提供了一些实用函数，如更新配置、实例化回调和日志记录器等
 # 它的主要函数是pipeline_launcher，它根据配置实例化数据模块、模型、回调和日志记录器，并使用lightning的Trainer来训练或推理模型
 # 它还提供了一些辅助函数，如get_last_modified_file、has_no_extension、list_subfolders等，用于处理文件和目录
 # 它还提供了一些回调函数，如ModelCheckpoint、ModelSummary等，用于在训练过程中保存模型和打印模型摘要
@@ -32,7 +31,7 @@ from src.utils.logging_utils import finalize_loggers
 from src.utils.restart_job_utils import get_attribute_from_metadata_file
 from src.utils.utils import has_class_object_inside_list
 
-command_line_logger = RankedLogger(__name__, rank_zero_only=True)
+command_line_logger = RankedLogger(__name__, rank_zero_only=True) # 这是一个日志记录器，用于在命令行中打印日志
 
 
 @dataclass
